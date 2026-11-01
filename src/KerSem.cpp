@@ -1,113 +1,55 @@
-#include "PCB.h"
-#include "QUEUE.h"
-#include "Schedule.h"
 #include "KerSem.h"
+#include "PCB.h"
 #include "SemList.h"
-#include <iostream.h>
+#include "kernel.h"
 
-extern void lock();
-extern void unlock();
-extern SemList* allSems;
-extern PCB* running;
-
-//izmena: umesto globalne liste uspavanih niti
-//postoji globalna lista svih semafora koji se
-//updatuju u prekidnoj rutini tajmera
-
-KernelSem::KernelSem(int init){
-	lock();
-	//postavi inicijalnu vrednost semafora
+KernelSem::KernelSem(int init) {
 	val = init;
-	//napravi novi red
-	blockedQ = new Queue();
-	allSems->addNode(this);
-	unlock();
+	allSems()->add(this);
 }
 
-int KernelSem::wait(unsigned int maxTimeToWait){
+KernelSem::~KernelSem() {
+	allSems()->remove(this);
+}
 
+int KernelSem::wait(Time maxTimeToWait) {
+	int result = 1;
 	lock();
-	//ako je vrednost semafora 0 ili manje, blokiraj nit
-	if(--val < 0){
-		//cout << "nit se uspavala na ovoliko kvantova: " << maxTimeToWait << endl;
-		block(maxTimeToWait);
+	if (--val < 0) {
+		running->semStatus = 0;
+		running->state = PCB::BLOCKED;
+		blocked.add(running, maxTimeToWait);
+		dispatch();
+		result = running->semStatus;
 	}
 	unlock();
-	//semStatus je flag u PCB strukturi, 0 oznacava da je oslobodjena zbog isteka vremena
-	//1 oznacava da je oslobodio semafor
-	return running->semStatus;
+	return result;
 }
 
-int KernelSem::signal(int n){
-
-	lock();
-	//ne sme se kao argument proslediti negativna vrednost
-	if(n < 0)
+int KernelSem::signal(int n) {
+	if (n < 0)
 		return n;
-	//ako je n = 0, ova operacija se ponasa kao standardna, tj. n = 1
-	if(n == 0)
-		n = 1;
-	int counter = 0;
-	//deblokiraj onoliko niti koliko je potrebno/moguce
-	while(n > 0 && val < 0){
-		if(blockedQ->isEmpty())
-			break; //dodato
-		unblock();
+	int toWake = (n == 0) ? 1 : n;
+	int woken = 0;
+	lock();
+	while (woken < toWake && val < 0) {
+		PCB* pcb = blocked.removeFirst();
+		if (pcb == 0)
+			break;
+		pcb->semStatus = 1;
+		pcb->wakeUp();
 		val++;
-		n--;
-		counter++;
+		woken++;
 	}
-	//povecaj val za broj deblokiranih niti i vise ako je potrebno
-	val += n ;//da li treba +counter??
+	val += toWake - woken;
 	unlock();
-	//vrati broj stvarno oslobodjenih niti
-	return counter;
-
+	return (n == 0) ? 0 : woken;
 }
 
-int KernelSem::value() const{
+int KernelSem::value() const {
 	return val;
 }
 
-//pomocna fja za blokiranje niti
-void KernelSem::block(unsigned int maxTimeToWait){
-	//postavi blockedFLAG na 1
-	running->blockedFLAG = 1;
-	//dodato
-	running->readyFLAG = 0;
-	running->semStatus = 1;
-	//ako je neograniceno vreme cekanja, postavi FLAG za to na -1
-	//u suprotnom, postavi zadato vreme cekanja
-	int toWait = (maxTimeToWait == 0) ? -1 : maxTimeToWait;
-	//dodaj ovu nit u red cekanja
-	blockedQ->addToQueue(running, toWait);
-	//running->blockedOn = this;
-	//trazi promenu konteksta
-	dispatch();
+void KernelSem::update() {
+	val += blocked.wakeExpired();
 }
-
-void KernelSem::unblock(){
-	//provera da li uopste postoje blokirane niti
-	//jer se moze desiti da su se deblokirale usled isteka vremena
-	if(blockedQ->isEmpty()){
-		//cout << "blocked queue empty" << endl;
-		return;
-	}
-	//dohvati prvu nit iz reda i vrati je u rasporedjivac
-	PCB* p = blockedQ->getFromQueue();
-	p->blockedFLAG = 0;
-	p->readyFLAG = 1;
-	Scheduler::put(p);
-}
-
-//dodat metod za azuriranje stanja semafora
-void KernelSem::updateSem(){
-	val += blockedQ->updateQ();
-}
-
-KernelSem::~KernelSem(){
-	//obrisi red i obrisi ovaj semafor iz globalne liste
-	delete blockedQ;
-	allSems->remove(this);
-}
-

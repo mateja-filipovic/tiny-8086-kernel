@@ -1,80 +1,52 @@
 #include "PCB.h"
-#include "Schedule.h"
-#include <DOS.h>
-#include <iostream.h>
+#include "kernel.h"
+#include "SCHEDULE.H"
+#include <dos.h>
 
-extern void dispatch();
-extern PCB* running;
-extern List* allPCBs;
-extern void lock();
-extern void unlock();
+ID PCB::nextID = 0;
 
-int PCB::nextID = 0;
-
-//izmena: umesto dva konstruktora koristi se jedan
-//sa nekim default parametrima
-
-PCB::PCB(StackSize stSz, Time tSl, Thread* myTh){
-	uniqueID = nextID++;
-	if(stSz >= 64000)
-		stackSize = 64000;
-	else
-		stackSize = stSz / 2;
-
-	//postavi nit i timeslice
-	myThread = myTh;
-	timeSlice = tSl;
-
-	//inicijalizacija liste cekanja
-	waitingList = new List();
-
-	//inicijalna postavka flegova
-	newFLAG = 1;
-	readyFLAG = 1;
-	blockedFLAG = 0;
-	finishedFLAG = 0;
-
-	//blockedOn = 0;
+PCB::PCB(StackSize stackSize, Time tSlice, Thread* thread) {
+	id = nextID++;
+	timeSlice = tSlice;
+	myThread = thread;
+	state = NEW;
 	semStatus = 0;
-
-	//ne praviti kontekst za glavnu nit
-	if(myTh != 0){
-		stack = new unsigned[stackSize];
-		stack[stackSize - 1] = 0x200;
-		stack[stackSize - 2] = FP_SEG(PCB::wrapper);
-		stack[stackSize - 3] = FP_OFF(PCB::wrapper);
-		sp = FP_OFF(stack + stackSize - 12);
-		ss = FP_SEG(stack + stackSize - 12);
-		bp = sp;
-	}else{
-		stack = 0;
-		sp = 0;
-		bp = 0;
-		ss = 0;
-	}
-	//registruj ovaj pcb u globalnu listu svih pcbova
-	allPCBs->addNode(this);
+	stack = 0;
+	sp = ss = bp = 0;
+	if (thread != 0)
+		initStack(stackSize);
+	allPCBs()->add(this);
 }
 
-void PCB::wrapper(){
+PCB::~PCB() {
+	allPCBs()->remove(this);
+	delete[] stack;
+}
+
+void PCB::initStack(StackSize stackSize) {
+	if (stackSize > maxStackSize)
+		stackSize = maxStackSize;
+	unsigned words = (unsigned)(stackSize / sizeof(unsigned));
+	stack = new unsigned[words];
+	// iret frame for the first switch: FLAGS (IF=1), CS, IP
+	stack[words - 1] = 0x200;
+	stack[words - 2] = FP_SEG(PCB::wrapper);
+	stack[words - 3] = FP_OFF(PCB::wrapper);
+	// room for the 9 registers the interrupt epilogue pops
+	sp = FP_OFF(stack + words - 12);
+	ss = FP_SEG(stack + words - 12);
+	bp = sp;
+}
+
+void PCB::wrapper() {
 	running->myThread->run();
 	lock();
-	running->waitingList->wakeAll();
-	running->readyFLAG = 0;
-	running->finishedFLAG = 1;
-	unlock();
+	running->state = FINISHED;
+	running->waitingList.wakeAll();
 	dispatch();
 }
 
-void PCB::wakeUp(){
-	blockedFLAG = 0;
-	readyFLAG = 1;
+void PCB::wakeUp() {
+	state = READY;
 	Scheduler::put(this);
-}
-
-PCB::~PCB(){
-	allPCBs->remove(this);
-	if(stack != 0)
-		delete[] stack;
-	delete waitingList;
 }

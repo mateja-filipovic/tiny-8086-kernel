@@ -1,30 +1,27 @@
 #ifndef _QUEUE_H_
 #define _QUEUE_H_
 
-#include "PCB.h"
+class PCB;
 
 struct QNode {
 	PCB* pcb;
-	int sleepInterval;
+	unsigned ticksLeft;
 	QNode* next;
 };
 
 class Queue {
-
 public:
-
 	Queue();
 	~Queue();
 
-	void addToQueue(PCB* newPcb, int sleepInterval);
-	PCB* getFromQueue();
-	void printQueue() const;
-	void removeFromQueue(PCB* toRemove);
-	int updateQ();
-	int isEmpty();
+	void add(PCB* pcb, unsigned maxTicks); // maxTicks 0: wait forever
+	PCB* removeFirst();
+	int wakeExpired();
+	int isEmpty() const;
 
-//private:
-	QNode* head, * tail;
-	int size;
+private:
+	QNode* head;
+	QNode* tail;
 };
+
 #endif

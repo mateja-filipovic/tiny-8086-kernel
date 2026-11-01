@@ -19,8 +19,6 @@ public:
  ID getId();
  static ID getRunningId();
  static Thread * getThreadById(ID id);
- //dodato
- PCB* getPCB();
 
 protected:
 

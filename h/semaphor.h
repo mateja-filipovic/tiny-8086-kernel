@@ -1,7 +1,6 @@
 // File: semaphor.h
 #ifndef _semaphor_h_
 #define _semaphor_h_
-#include "KerSem.h"
 
 typedef unsigned int Time;
 

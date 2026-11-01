@@ -1,27 +1,27 @@
 #include "semaphor.h"
-#include <iostream.h>
+#include "KerSem.h"
+#include "kernel.h"
 
-extern void lock();
-extern void unlock();
-
-Semaphore::Semaphore (int init){
+Semaphore::Semaphore(int init) {
+	lock();
 	myImpl = new KernelSem(init);
+	unlock();
 }
 
-int Semaphore::wait (Time maxTimeToWait){
-	return myImpl->wait(maxTimeToWait);
-}
-
-int Semaphore::signal(int n){
-	return myImpl->signal(n);
-}
-
-int Semaphore::val () const{
-	return myImpl->value();
-}
-
-Semaphore::~Semaphore (){
+Semaphore::~Semaphore() {
 	lock();
 	delete myImpl;
 	unlock();
+}
+
+int Semaphore::wait(Time maxTimeToWait) {
+	return myImpl->wait(maxTimeToWait);
+}
+
+int Semaphore::signal(int n) {
+	return myImpl->signal(n);
+}
+
+int Semaphore::val() const {
+	return myImpl->value();
 }

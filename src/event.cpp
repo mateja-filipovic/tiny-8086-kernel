@@ -1,31 +1,23 @@
 #include "event.h"
 #include "KerEv.h"
-#include "PCB.h"
+#include "kernel.h"
 
-extern void lock();
-extern void unlock();
-
-
-Event::Event(IVTNo ivtNo){
+Event::Event(IVTNo ivtNo) {
 	lock();
 	myImpl = new KernelEv(ivtNo);
 	unlock();
 }
 
-Event::~Event (){
+Event::~Event() {
 	lock();
 	delete myImpl;
 	unlock();
 }
 
-void Event::wait(){
-	lock();
+void Event::wait() {
 	myImpl->wait();
-	unlock();
 }
 
-void Event::signal(){
-	lock();
+void Event::signal() {
 	myImpl->signal();
-	unlock();
 }

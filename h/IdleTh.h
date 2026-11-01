@@ -3,12 +3,11 @@
 
 #include "thread.h"
 
-//nit koja uposleno ceka, ako su sve niti blokirane
-class Idle: public Thread{
+// runs only while every other thread is blocked
+class Idle : public Thread {
 public:
-
-	Idle(StackSize stackSize = 100, Time timeSlice = 2);
-	/*virtual*/ void run();
+	Idle();
+	virtual void run();
 };
 
 #endif

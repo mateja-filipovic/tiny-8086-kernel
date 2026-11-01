@@ -4,30 +4,32 @@
 #include "thread.h"
 #include "List.h"
 
-class KernelSem;
+const StackSize maxStackSize = 64000;
 
-
-class PCB{
+class PCB {
 public:
-	unsigned stackSize;
-	unsigned* stack;
-	unsigned sp, bp, ss;
+	enum State { NEW, READY, BLOCKED, FINISHED };
 
-	unsigned newFLAG, readyFLAG, blockedFLAG, finishedFLAG;
+	PCB(StackSize stackSize = defaultStackSize, Time timeSlice = defaultTimeSlice, Thread* thread = 0);
+	~PCB();
+
+	static void wrapper();
+	void wakeUp();
+
+	unsigned* stack;
+	unsigned sp, ss, bp;
 
 	Time timeSlice;
 	Thread* myThread;
-	List* waitingList;
+	List waitingList;
+	ID id;
+	State state;
+	int semStatus; // 1 signaled, 0 timed out
 
-	int uniqueID;
-	static int nextID;
+	static ID nextID;
 
-	int semStatus;
-
-	PCB(StackSize stSz = defaultStackSize, Time tSl = defaultTimeSlice, Thread* myTh = 0);
-	static void wrapper();
-	void wakeUp();
-	~PCB();
+private:
+	void initStack(StackSize stackSize);
 };
 
 #endif

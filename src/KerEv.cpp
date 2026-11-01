@@ -1,58 +1,46 @@
 #include "KerEv.h"
-#include "Schedule.h"
-#include "IVTEntry.h"
+#include "PCB.h"
+#include "kernel.h"
 
-extern void dispatch();
-extern PCB* running;
-extern void lock();
-extern void unlock();
-
-//izmena: vlasnik se ne postavlja preko konstruktora
-//vec se implicitno u konstruktoru uzima running
-
-KernelEv::KernelEv(unsigned char ivtNo_){
+KernelEv::KernelEv(IVTNo ivtNo_) {
 	owner = running;
 	blocked = 0;
 	ivtNo = ivtNo_;
-	//inicijalno je vrednost 0
 	val = 0;
-	//uvezati IVTEntry objekat sa ovim objektom
-	IVTEntry::ivTable[ivtNo_]->setEvent(this);
+	IVTEntry* entry = IVTEntry::getEntry(ivtNo);
+	if (entry != 0)
+		entry->setEvent(this);
 }
 
-//izmenjen je nacin rada wait i signal
-void KernelEv::wait(){
+KernelEv::~KernelEv() {
+	IVTEntry* entry = IVTEntry::getEntry(ivtNo);
+	if (entry != 0 && entry->getEvent() == this)
+		entry->setEvent(0);
+}
+
+void KernelEv::wait() {
 	lock();
-	if(running != owner){
-		unlock();
-		return;
-	}
-	if(val == 0){
-		//val = 1;
-		owner->blockedFLAG = 1;
-		owner->readyFLAG = 0;
-		blocked = owner;
-		dispatch();
-	}else{
-		val = 0;
+	if (running == owner) {
+		if (val == 0) {
+			owner->state = PCB::BLOCKED;
+			blocked = owner;
+			dispatch();
+		} else {
+			val = 0;
+		}
 	}
 	unlock();
 }
 
-void KernelEv::signal(){
+void KernelEv::signal() {
 	lock();
-	if(blocked == 0)
-		val = 1;
-	else{
-		val = 0;
+	if (blocked != 0) {
+		PCB* pcb = blocked;
 		blocked = 0;
-		owner->readyFLAG = 1;
-		owner->blockedFLAG = 0;
-		Scheduler::put(owner);
+		pcb->wakeUp();
+	} else {
+		val = 1;
 	}
 	unlock();
-}
-
-KernelEv::~KernelEv(){
-	IVTEntry::ivTable[ivtNo]->myEvent = 0;
+	dispatch();
 }

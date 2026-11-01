@@ -1,52 +1,44 @@
+#include "IVTEntry.h"
+#include "KerEv.h"
+#include "kernel.h"
 #include <dos.h>
 
-#include "IVTEntry.h"
+IVTEntry* IVTEntry::table[256];
 
-//izmena u odnosu na proslu verziju:
-//ivt je sada staticni clan klase IVTEntry
-
-IVTEntry * IVTEntry::ivTable[256];
-
-
-IVTEntry::IVTEntry(IVTNo numEntry_, interruptPointer ip){
-#ifndef BCC_BLOCK_IGNORE
-	asm cli;
-	//sacuvaj staru prekidnu rutinu
-	oldRoutine = getvect(numEntry_);
-#endif
-	//myEvent mora da se poziva pri kreiranju objekta!!
-	myEvent = 0;
-	//postavi broj ulaza
-	numEntry = numEntry_;
-	//postavi ovu prekidnu rutinu u tabelu prekidnih rutina
-	ivTable[numEntry] = this;
-#ifndef BCC_BLOCK_IGNORE
-	//postavi novu prekidnu rutinu
-	setvect(numEntry, ip);
-	asm sti;
-#endif
+IVTEntry::IVTEntry(IVTNo entry_, interruptPointer newRoutine) {
+	entry = entry_;
+	event = 0;
+	lock();
+	oldRoutine = getvect(entry);
+	setvect(entry, newRoutine);
+	table[entry] = this;
+	unlock();
 }
 
-//ovo se mora pozvati pri kreiranju objekta!!
-void IVTEntry::setEvent(KernelEv* myEv){
-	myEvent = myEv;
+IVTEntry::~IVTEntry() {
+	lock();
+	setvect(entry, oldRoutine);
+	table[entry] = 0;
+	unlock();
 }
 
-//ukoliko je potrebno, pozvati staru prekidnu rutinu
-void IVTEntry::callOldRoutine(){
-		oldRoutine();
+void IVTEntry::callOldRoutine() {
+	oldRoutine();
 }
 
-//pozovi signal operaciju uvezanog KernelEv
-void IVTEntry::signal(){
-	myEvent->signal();
+void IVTEntry::signal() {
+	if (event != 0)
+		event->signal();
 }
 
-IVTEntry::~IVTEntry(){
-	//obavezno lock unlock ovde
-#ifndef BCC_BLOCK_IGNORE
-	asm cli
-	setvect(numEntry, oldRoutine);
-	asm sti
-#endif
+void IVTEntry::setEvent(KernelEv* ev) {
+	event = ev;
+}
+
+KernelEv* IVTEntry::getEvent() const {
+	return event;
+}
+
+IVTEntry* IVTEntry::getEntry(IVTNo entry) {
+	return table[entry];
 }

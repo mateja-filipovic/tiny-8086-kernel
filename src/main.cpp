@@ -1,25 +1,22 @@
+#include "kernel.h"
 #include "PCB.h"
 #include "IdleTh.h"
 
-extern void inic();
-extern void restore();
-extern PCB* running;
-extern Idle* idle;
 extern int userMain(int argc, char* argv[]);
 
-int main(int argc, char* argv[]){
-	
-  inic();
-  running = new PCB();
-  idle = new Idle(100, 1);
-  int ret = userMain(argc, argv);
-  restore();
+int main(int argc, char* argv[]) {
+	running = new PCB(); // the main thread, already executing
+	running->state = PCB::READY;
 
-  delete idle;
-  delete allPCBs;
-  delete allSems;
-  delete running;
- 
-  return ret;
+	Idle* idle = new Idle();
+	idlePCB = allPCBs()->find(idle->getId());
+
+	initTimer();
+	int ret = userMain(argc, argv);
+	restoreTimer();
+
+	delete idle;
+	delete running;
+	// allPCBs()/allSems() stay alive for static destructors
+	return ret;
 }
-

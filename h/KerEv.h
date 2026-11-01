@@ -1,29 +1,23 @@
 #ifndef _KEREV_H_
 #define _KEREV_H_
 
-#include "PCB.h"
+#include "IVTEntry.h"
 
-//kernel implementacija dogadjaja
-class KernelEv{
+class PCB;
+
+class KernelEv {
 public:
-
-	//prilikom kreiranja mora se postaviti vlasnik i broj ulaza u IVT
-	KernelEv(unsigned char ivtNo_);
+	KernelEv(IVTNo ivtNo); // owner is the thread creating it
 	~KernelEv();
 
 	void wait();
 	void signal();
 
-
-	//vlasnik objekta
+private:
 	PCB* owner;
-	//pokazivac na blokiranu nit, moze biti ili vlasnik ili 0
-	PCB* blocked;
-	//broj ulaza u IVT
-	unsigned char ivtNo;
-	//vrednost binarnog semafora
+	PCB* blocked; // owner while it waits, otherwise 0
+	IVTNo ivtNo;
 	int val;
-
 };
 
 #endif
