@@ -1,4 +1,4 @@
-<h1 align="center">OS1 Kernel</h1>
+<h1 align="center">Tiny 8086 Kernel</h1>
 
 <p align="center">
   A small multithreaded kernel for the 8086 in C++: threads, time sharing, semaphores with timed waits and events bound to hardware interrupts.

@@ -1,4 +1,4 @@
-<h1 align="center">OS1 Kernel</h1>
+<h1 align="center">Tiny 8086 Kernel</h1>
 
 <p align="center">
   Malo višenitno jezgro za 8086 u C++-u: niti, deljenje vremena, semafori sa vremenski ograničenim čekanjem i događaji vezani za hardverske prekide.
